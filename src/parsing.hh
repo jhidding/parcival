@@ -149,23 +149,23 @@ namespace Parcival
 
         std::variant<Output, failure_t> value;
 
-        result_t(Output const &value)
+        constexpr result_t(Output const &value)
             : value(value)
         {}
 
-        result_t(Output &&value)
+        constexpr result_t(Output &&value)
             : value(std::move(value))
         {}
 
-        result_t(failure_t const &f)
+        constexpr result_t(failure_t const &f)
             : value(f)
         {}
 
         template <typename Stream>
-        state_t<Stream, Output> operator()(Stream &&stream)
+        state_t<Stream, Output> operator()(Stream &&stream) const
         {
             if (value.index() == 0)
-                return state(std::forward<Stream>(stream), std::move(std::get<0>(value)));
+                return state(std::forward<Stream>(stream), std::get<0>(value));
             else
                 return failure<Output>(stream);
         }
@@ -200,7 +200,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<typename std::decay<Stream>::type, output_type> operator()(Stream &&stream)
+        state_t<typename std::decay<Stream>::type, output_type> operator()(Stream &&stream) const
         {
             auto step = p(std::move(stream));
 
@@ -276,7 +276,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<Stream, output_type> operator()(Stream &&stream)
+        state_t<Stream, output_type> operator()(Stream &&stream) const
         {
             return parse_tuple(
                 std::forward<Stream>(stream), p, output_type{},
@@ -309,16 +309,17 @@ namespace Parcival
         return extend_tuple(p1, p2, std::index_sequence_for<Ps...>{});
     }
 
-    template <typename T>
+    template <typename T, typename F>
     struct predicate_t
     {
-        std::function<bool(T const &)> f;
+        F f;
+        // std::function<bool(T const &)> f;
 
-        template <typename F>
-        predicate_t(F f): f(f) {}
+        //template <typename F>
+        constexpr predicate_t(F f): f(f) {}
 
         template <typename T_>
-        result_t<T> operator()(T_ &&x)
+        result_t<T> operator()(T_ &&x) const
         {
             if (f(x))
                 return result_t<T>(std::forward<T_>(x));
@@ -328,9 +329,9 @@ namespace Parcival
     };
 
     template <typename T, typename F>
-    predicate_t<T> predicate(F f)
+    constexpr predicate_t<T, F> predicate(F f)
     {
-        return predicate_t<T>(f);
+        return predicate_t<T, F>(f);
     }
 
     template <typename P1, typename P2>
@@ -342,14 +343,14 @@ namespace Parcival
         P1 p1;
         P2 p2;
 
-        template <typename P1_, typename P2_>
-        constexpr choice_t(P1_ &&p1, P2_ &&p2)
+        // template <typename P1_, typename P2_>
+        constexpr choice_t(P1 p1, P2 p2)
             : p1(p1)
             , p2(p2)
         {}
 
         template <typename Stream>
-        state_t<typename std::decay<Stream>::type, output_type> operator()(Stream &&stream)
+        state_t<typename std::decay<Stream>::type, output_type> operator()(Stream &&stream) const
         {
             auto pos = stream.tellg();
             auto first = p1(std::move(stream));
@@ -391,7 +392,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<Stream, output_type> operator()(Stream &&stream)
+        state_t<Stream, output_type> operator()(Stream &&stream) const
         {
             auto r = p(stream);
             return state(
@@ -435,7 +436,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<Stream, output_type> operator()(Stream &&stream)
+        state_t<Stream, output_type> operator()(Stream &&stream) const
         {
             seq_t<element_type> r;
             auto pos = stream.tellg();
@@ -474,7 +475,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<Stream, output_type> operator()(Stream &&stream)
+        state_t<Stream, output_type> operator()(Stream &&stream) const
         {
             output_type r = start;
             auto pos = stream.tellg();
@@ -517,5 +518,30 @@ namespace Parcival
     constexpr auto many(P &&p)
     {
         return many_t<typename std::decay<P>::type>(std::forward<P>(p));
+    }
+
+    template <typename P>
+    constexpr auto expect(P p)
+    {
+        return [p] (auto d)
+        {
+            return p >= [d] (auto e)
+            {
+                return result(d);
+            };
+        };
+    }
+
+    constexpr auto is(char c)
+    {
+        return predicate<char>([c] (char d) { return c == d; });
+    }
+
+    constexpr auto one_of(char const *s)
+    {
+        return predicate<char>([s] (char d)
+        {
+            return std::string(s).find(d) != std::string::npos;
+        });
     }
 }
