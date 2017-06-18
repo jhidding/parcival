@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "parsing.hh"
+#include "numbers.hh"
 #include <cctype>
 #include <cmath>
 #include <functional>
@@ -50,76 +51,17 @@ predicate_t<char> one_of(std::string const &s)
         { return s.find(d) != std::string::npos; });
 }
 
-
 TEST(Parsing, SignedInteger)
 {
-    struct fp
-    {
-        int s;
-        long i;
-
-        long value() const { return s * i; }
-    };
-
-    auto sign = [] (fp value)
-    {
-        return (item<char>
-            >= one_of("+-")
-            >= [value] (char c)
-            {
-                fp v = value;
-                switch (c)
-                {
-                    case '-': v.s = -1; break;
-                    case '+': v.s = +1; break;
-                }
-                return result(v);
-            }) | result(value);
-    };
-
-    auto integer = [] (fp value)
-    {
-        auto digit = item<char>
-            >= predicate<char>(isdigit)
-            >= [] (char c)
-            {
-                return result(static_cast<unsigned>(c - '0'));
-            };
-
-        auto first_digit = digit
-            >= [value] (unsigned x)
-            {
-                fp v = value; v.i = x; return result(v);
-            };
-
-        return first_digit >= [digit] (fp value)
-        {
-            return reduce([] (fp v, unsigned x)
-            {
-                v.i *= 10;
-                v.i += x;
-                return v;
-            }, digit, value);
-        };
-    };
-
-    auto eval = [] (fp value)
-    {
-        return result(value.value());
-    };
-
-    auto p = result(fp{ 1, 0 })
-        >= sign >= integer >= eval;
-
-    auto r1 = p("-123"_s);
+    auto r1 = signed_integer("-123"_s);
     ASSERT_TRUE(r1.is_success());
     EXPECT_EQ(r1.value(), -123);
 
-    auto r2 = p("+9375490375"_s);
+    auto r2 = signed_integer("+9375490375"_s);
     ASSERT_TRUE(r2.is_success());
     EXPECT_EQ(r2.value(), 9375490375);
 
-    auto r3 = p("+-3"_s);
+    auto r3 = signed_integer("+-3"_s);
     EXPECT_FALSE(r3.is_success());
 }
 

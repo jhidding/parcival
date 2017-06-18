@@ -1,2 +1,2 @@
-subdir('./main')
 subdir('./parsing')
+subdir('./main')

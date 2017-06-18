@@ -200,7 +200,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<Stream, output_type> operator()(Stream &&stream)
+        state_t<typename std::decay<Stream>::type, output_type> operator()(Stream &&stream)
         {
             auto step = p(std::move(stream));
 
@@ -218,6 +218,95 @@ namespace Parcival
     {
         return sequence_t<typename std::decay<P>::type,
                           typename std::decay<F>::type>(std::forward<P>(p), std::forward<F>(f));
+    }
+
+    template <typename P,
+              typename F,
+              typename = typename std::enable_if
+                  <std::is_same
+                      <typename P::is_parser_type, std::true_type>::value>::type>
+    constexpr auto operator>>(P p, F f)
+    {
+        using T = typename P::output_type;
+
+        return p >= [f] (T const &t)
+        {
+            return std::apply(f, t);
+        };
+    }
+
+    template <typename Stream, typename ...Ps>
+    state_t<typename std::decay<Stream>::type, std::tuple<typename Ps::output_type...>>
+    parse_tuple(
+            Stream &&stream,
+            std::tuple<Ps...> p,
+            std::tuple<typename Ps::output_type...> &&v,
+            std::index_sequence<>)
+    {
+        return state(std::move(stream), std::move(v));
+    }
+
+    template <typename Stream, typename ...Ps, size_t I0, size_t ...Is>
+    state_t<typename std::decay<Stream>::type, std::tuple<typename Ps::output_type...>>
+    parse_tuple(
+            Stream &&stream,
+            std::tuple<Ps...> p,
+            std::tuple<typename Ps::output_type...> &&v,
+            std::index_sequence<I0, Is...>)
+    {
+        auto r = std::get<I0>(p)(stream);
+        if (not r.is_success())
+            return failure<std::tuple<typename Ps::output_type...>>
+                (std::move(r.stream()));
+
+        std::get<I0>(v) = std::move(r.value());
+        return parse_tuple(std::move(r.stream()), p, std::move(v), std::index_sequence<Is...>{});
+    }
+
+    template <typename ...Ps>
+    struct tuple_t
+    {
+        using is_parser_type = std::true_type;
+        using output_type = std::tuple<typename Ps::output_type ...>;
+
+        std::tuple<Ps...> p;
+
+        constexpr tuple_t(Ps ... ps)
+            : p(ps...)
+        {}
+
+        template <typename Stream>
+        state_t<Stream, output_type> operator()(Stream &&stream)
+        {
+            return parse_tuple(
+                std::forward<Stream>(stream), p, output_type{},
+                std::index_sequence_for<Ps...>{});
+        }
+    };
+
+    template <typename P1, typename P2,
+              typename = typename std::enable_if
+                  <P1::is_parser_type::value>::type,
+              typename = typename std::enable_if
+                  <P2::is_parser_type::value>::type>
+    tuple_t<P1, P2> operator,(P1 p1, P2 p2)
+    {
+        return tuple_t<P1, P2>(p1, p2);
+    }
+
+
+    template <typename ...Ps, typename P, size_t ...Is>
+    tuple_t<Ps..., P> extend_tuple(tuple_t<Ps...> t, P p, std::index_sequence<Is...>)
+    {
+        return tuple_t<Ps..., P>(std::get<Is>(t)..., p);
+    }
+
+    template <typename ...Ps, typename P2,
+              typename = typename std::enable_if
+                  <P2::is_parser_type::value>::type>
+    tuple_t<Ps..., P2> operator,(tuple_t<Ps...> p1, P2 p2)
+    {
+        return extend_tuple(p1, p2, std::index_sequence_for<Ps...>{});
     }
 
     template <typename T>
@@ -260,7 +349,7 @@ namespace Parcival
         {}
 
         template <typename Stream>
-        state_t<Stream, output_type> operator()(Stream &&stream)
+        state_t<typename std::decay<Stream>::type, output_type> operator()(Stream &&stream)
         {
             auto pos = stream.tellg();
             auto first = p1(std::move(stream));
@@ -289,6 +378,34 @@ namespace Parcival
         return choice_t<typename std::decay<P1>::type,
                         typename std::decay<P2>::type>
                 (std::forward<P1>(p1), std::forward<P2>(p2));
+    }
+
+    template <typename P>
+    struct optional_t
+    {
+        using output_type = std::optional<typename P::output_type>;
+        P p;
+
+        constexpr optional_t(P p)
+            : p(p)
+        {}
+
+        template <typename Stream>
+        state_t<Stream, output_type> operator()(Stream &&stream)
+        {
+            auto r = p(stream);
+            return state(
+                std::move(p.stream()),
+                output_type(p.is_success()
+                    ? std::move(p.value())
+                    : std::nullopt));
+        }
+    };
+
+    template <typename P>
+    constexpr auto optional(P &&p)
+    {
+        return optional_t<typename std::decay<P>::type>(std::forward<P>(p));
     }
 
     template <typename T>
