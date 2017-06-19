@@ -26,9 +26,9 @@ namespace Parcival
         return y * 10U + (unsigned long)d;
     }
 
-    inline result_t<long> make_signed_integer(int s, unsigned long x)
+    constexpr preturn_t<long> make_signed_integer(int s, unsigned long x)
     {
-        return result<long>(s * x);
+        return preturn((long)s * (long)x);
     }
 
     constexpr auto digit
@@ -36,17 +36,17 @@ namespace Parcival
        >= predicate<char>(isdigit)
        >= char_to_number;
 
-    auto sign
+    constexpr auto sign
         = (item<char>
            >= sign_to_number)
-        | result<int>(1);
+        | preturn(1);
 
     constexpr auto number
         =  digit
         >= [] (unsigned long x)
             { return reduce(add_digit, digit, x); };
 
-    auto signed_integer
+    constexpr auto signed_integer
         =  (sign, number)
         >> make_signed_integer;
 
@@ -61,7 +61,7 @@ namespace Parcival
         }
     };
 
-    auto simple_floating_point
+    constexpr auto simple_floating_point
         =  signed_integer
         >= expect(item<char> >= is('.'))
         >= [] (long m) {
@@ -72,19 +72,19 @@ namespace Parcival
             }, digit, float_data{m, 0});
         };
 
-    auto simple_float
+    constexpr auto simple_float
         =  simple_floating_point
         >= [] (float_data f) {
             return result<double>(f.value());
         };
 
-    auto scientific_float
+    constexpr auto scientific_float
         =  (simple_floating_point,
             (item<char>
                 >= one_of("eE")
                 >= [] (char ignored) {
                     return signed_integer;
-                }) | result<long>(0))
+                }) | preturn(0L))
         >> [] (float_data f, int e) {
             f.exponent += e;
             return result<double>(f.value());

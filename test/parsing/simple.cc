@@ -82,3 +82,24 @@ TEST(Parsing, Some)
     ASSERT_TRUE(s.is_success());
     EXPECT_EQ(s.value(), "123");
 }
+
+TEST(Parsing, Tuples)
+{
+    auto p = (item<char>, item<char>, item<char>);
+    auto r = p("abc"_s);
+
+    ASSERT_TRUE(r.is_success());
+    EXPECT_EQ(r.value(), std::make_tuple('a', 'b', 'c'));
+
+    auto q = p >> [] (char a, char b, char c)
+    {
+        return result(std::string() + a + b + c);
+    };
+    auto s = q("123"_s);
+
+    ASSERT_TRUE(s.is_success());
+    EXPECT_EQ(s.value(), "123");
+
+    auto t = p("42"_s);
+    EXPECT_FALSE(t.is_success());
+}

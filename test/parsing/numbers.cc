@@ -60,3 +60,28 @@ TEST(Parsing, ScientificFloat)
     ASSERT_TRUE(r3.is_success());
     EXPECT_NEAR(r3.value(), 3.95879e-20, 1e-26);
 }
+
+template <typename P>
+constexpr auto tokenize(P &&p)
+{
+    auto space = item<char> >= predicate<char>(isspace);
+    return std::forward<P>(p) >= expect(many(space));
+}
+
+TEST(Parsing, Arrays)
+{
+    auto comma = item<char> >= is(',');
+    auto p = (many(tokenize(number) >= expect(tokenize(comma))),
+              tokenize(number))
+          >> [] (seq_t<unsigned long> s, unsigned long x)
+          {
+              s.push_back(x);
+              return result(s);
+          };
+    auto r = p("123, 456 , 789,912"_s);
+
+    ASSERT_TRUE(r.is_success());
+    std::vector<int> t{ 123, 456, 789, 912 };
+    for (unsigned i = 0; i < 3; ++i)
+        EXPECT_EQ(r.value()[i], t[i]);
+}
