@@ -37,12 +37,13 @@ namespace Parcival
         state_t<Stream, output_type> operator()(Stream &&stream) const
         {
             seq_t<element_type> r;
-            auto pos = stream.tellg();
+            size_t pos = stream.tellg();
             auto s1 = p(std::move(stream));
 
             while (true) {
                 if (not s1.is_success())
                 {
+                    s1.stream().clear();
                     s1.stream().seekg(pos);
                     return state(std::move(s1.stream()), std::move(r));
                 }

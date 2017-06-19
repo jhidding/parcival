@@ -103,3 +103,18 @@ TEST(Parsing, Tuples)
     auto t = p("42"_s);
     EXPECT_FALSE(t.is_success());
 }
+
+
+TEST(Parsing, Tokenize)
+{
+    auto p = (tokenize(item<char>), tokenize(item<char>), tokenize(item<char>));
+    auto r = p("a   b c"_s);
+    ASSERT_TRUE(r.is_success());
+    EXPECT_EQ(r.value(), std::make_tuple('a', 'b', 'c'));
+
+    auto q = many(tokenize(item<char> >= predicate<char>(islower)));
+    auto s = q("a b  c   d  efGH"_s);
+    ASSERT_TRUE(s.is_success());
+    EXPECT_EQ(s.value(), "abcdef");
+}
+

@@ -25,9 +25,10 @@ namespace Parcival
     {
         auto r = std::get<I0>(p)(std::move(stream));
         if (not r.is_success())
+        {
             return failure<std::tuple<typename Ps::output_type...>>
                 (std::move(r.stream()));
-
+        }
         std::get<I0>(v) = std::move(r.value());
         return parse_tuple(std::move(r.stream()), p, std::move(v), std::index_sequence<Is...>{});
     }

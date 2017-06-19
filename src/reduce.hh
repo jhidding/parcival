@@ -32,6 +32,7 @@ namespace Parcival
             while (true) {
                 if (not s1.is_success())
                 {
+                    s1.stream().clear();
                     s1.stream().seekg(pos);
                     return state(std::move(s1.stream()), std::move(r));
                 }

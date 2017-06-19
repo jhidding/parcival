@@ -27,7 +27,9 @@ namespace Parcival
             auto step = p(std::move(stream));
 
             if (not step.is_success())
+            {
                 return failure<output_type>(std::move(step.stream()));
+            }
 
             auto next_parser = f(std::move(step.value()));
             return next_parser(std::move(step.stream()));

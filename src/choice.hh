@@ -30,6 +30,7 @@ namespace Parcival
             }
 
             // revert stream to previous position and try second parser
+            first.stream().clear();
             first.stream().seekg(pos);
             return p2(std::move(first.stream()));
         }
